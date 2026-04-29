@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>lacooon — supply chain scanner</title>
-  <meta name="description" content="Drop your dependency manifest. We'll tell you what's malicious." />
+  <meta name="description" content="Drop your dependency manifest or file. We'll tell you what's malicious." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -659,8 +659,8 @@
 
   <!-- Hero -->
   <section class="hero">
-    <h1>Drop your manifest.<br><em>We find what's malicious.</em></h1>
-    <p>Checks npm and PyPI packages against OSV malware advisories, GitHub Security Advisories, typosquatting databases, and 47 source-code heuristic rules. Nothing leaves your machine except the file you submit.</p>
+    <h1>Drop your file.<br><em>We find what's malicious.</em></h1>
+    <p>Analyze files, dependencies, and source code for malware, supply chain risks, and suspicious behavior. Combines vulnerability intelligence (OSV, GHSA), typosquatting detection, and static code heuristics to identify threats across manifests and raw code. All files are processed securely and discarded immediately after analysis.</p>
     <div class="hero-badges">
       <span class="badge">OSV · MAL-*</span>
       <span class="badge">GHSA malware</span>
@@ -684,9 +684,9 @@
       </svg>
 
       <div class="drop-primary">Drop file here or click to browse</div>
-      <div class="drop-secondary">No account required. File is not stored.</div>
+      <div class="drop-secondary">No account required. Files are processed securely and never stored.</div>
       <div class="drop-formats">
-        package.json &nbsp;·&nbsp; package-lock.json &nbsp;·&nbsp; pyproject.toml &nbsp;·&nbsp; requirements.txt
+        package.json &nbsp;·&nbsp; package-lock.json &nbsp;·&nbsp; pyproject.toml &nbsp;·&nbsp; requirements.txt &nbsp;·&nbsp; .py &nbsp;·&nbsp; .js &nbsp;·&nbsp; .ts &nbsp;·&nbsp; .txt
       </div>
     </div>
 
