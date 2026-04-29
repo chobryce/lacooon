@@ -14,7 +14,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,  # IMPORTANT
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -29,22 +29,20 @@ def sse(data: dict):
 @app.post("/scan")
 async def scan(file: UploadFile = File(...)):
     async def event_stream():
-        suffix = file.filename
-
-        yield sse({
-            "type": "status",
-            "phase": "upload",
-            "message": f"Received {file.filename}"
-        })
-
-tmp_dir = tempfile.mkdtemp()
-tmp_path = os.path.join(tmp_dir, file.filename)
-
-content = await file.read()
-with open(tmp_path, "wb") as tmp:
-    tmp.write(content)
+        tmp_dir = tempfile.mkdtemp()
+        tmp_path = os.path.join(tmp_dir, file.filename)
 
         try:
+            yield sse({
+                "type": "status",
+                "phase": "upload",
+                "message": f"Received {file.filename}"
+            })
+
+            content = await file.read()
+            with open(tmp_path, "wb") as tmp:
+                tmp.write(content)
+
             yield sse({
                 "type": "status",
                 "phase": "parse",
@@ -61,7 +59,6 @@ with open(tmp_path, "wb") as tmp:
 
             scanner = LaocoonScanner(deep=False)
 
-            results = []
             flagged = 0
             total_findings = 0
 
@@ -73,7 +70,6 @@ with open(tmp_path, "wb") as tmp:
                 })
 
                 result = scanner.scan_package(pkg)
-                results.append(result)
 
                 if result.is_malicious:
                     flagged += 1
@@ -101,10 +97,6 @@ with open(tmp_path, "wb") as tmp:
             })
 
         finally:
-            try:
-                import shutil
-                shutil.rmtree(tmp_dir, ignore_errors=True)
-            except Exception:
-                pass
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
