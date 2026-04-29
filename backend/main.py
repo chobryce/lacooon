@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import shutil
 
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,10 +37,12 @@ async def scan(file: UploadFile = File(...)):
             "message": f"Received {file.filename}"
         })
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            content = await file.read()
-            tmp.write(content)
-            tmp_path = tmp.name
+tmp_dir = tempfile.mkdtemp()
+tmp_path = os.path.join(tmp_dir, file.filename)
+
+content = await file.read()
+with open(tmp_path, "wb") as tmp:
+    tmp.write(content)
 
         try:
             yield sse({
@@ -99,7 +102,8 @@ async def scan(file: UploadFile = File(...)):
 
         finally:
             try:
-                os.remove(tmp_path)
+                import shutil
+                shutil.rmtree(tmp_dir, ignore_errors=True)
             except Exception:
                 pass
 
