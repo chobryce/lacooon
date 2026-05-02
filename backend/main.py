@@ -75,7 +75,9 @@ def home():
             ".txt containing code",
         ],
     }
-
+@app.get("/ping")
+def ping():
+    return {"ok": True}
 
 def severity_rank(value: Optional[str]) -> int:
     if not value:
