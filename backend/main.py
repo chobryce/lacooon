@@ -546,6 +546,24 @@ def deduplicate_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
     return out
 
+def scan_source_file(path: str, filename: str, data: bytes) -> dict:
+    content = decode_text(data)
+
+    findings = []
+    findings += run_laocoon_source_rules(content, filename)
+    findings += ast_python_findings(content, filename)
+
+    findings = deduplicate_findings(findings)
+
+    return {
+        "name": filename,
+        "version": "source",
+        "ecosystem": "source_code",
+        "is_malicious": len(findings) > 0,
+        "finding_count": len(findings),
+        "matches": findings,
+        "highest_severity": highest_severity(findings),
+    }
 
 @app.post("/scan")
 @limiter.limit("5/minute")
