@@ -1570,24 +1570,26 @@ class SourceAnalyzer:
             filename = url.split("/")[-1].split("?")[0]
             path = os.path.join(dest_dir, filename)
             with open(path, "wb") as f:
-            MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024  # 50MB
-          content_length = resp.headers.get("content-length")
-          if content_length and int(content_length) > MAX_DOWNLOAD_BYTES:
-              log.warning("Server reports file too large, aborting")
-              return None
-            total = 0
+                MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024  # 50MB
             
-            for chunk in resp.iter_content(65536):
-                if not chunk:
-                    continue
-            
-                total += len(chunk)
-            
-                if total > MAX_DOWNLOAD_BYTES:
-                    log.warning("Download exceeded size limit, aborting")
+                content_length = resp.headers.get("content-length")
+                if content_length and int(content_length) > MAX_DOWNLOAD_BYTES:
+                    log.warning("Server reports file too large, aborting")
                     return None
             
-                f.write(chunk)
+                total = 0
+            
+                for chunk in resp.iter_content(65536):
+                    if not chunk:
+                        continue
+            
+                    total += len(chunk)
+            
+                    if total > MAX_DOWNLOAD_BYTES:
+                        log.warning("Download exceeded size limit, aborting")
+                        return None
+            
+                    f.write(chunk)
             return path
         except Exception as e:
             log.warning(f"Source download failed: {e}")
@@ -1601,16 +1603,19 @@ class SourceAnalyzer:
                 with tarfile.open(archive_path, "r:*") as t:
                     t.extractall(extract_dir, filter='data')
                 return extract_dir
-            if zipfile.is_zipfile(archive_path):
+if zipfile.is_zipfile(archive_path):
     with zipfile.ZipFile(archive_path) as z:
         for member in z.infolist():
             member_path = os.path.realpath(
                 os.path.join(extract_dir, member.filename)
             )
+
             if not member_path.startswith(os.path.realpath(extract_dir)):
                 log.warning(f"Blocked zip slip attempt: {member.filename}")
                 continue
+
             z.extract(member, extract_dir)
+
     return extract_dir
         except Exception as e:
             log.warning(f"Archive extraction failed: {e}")
