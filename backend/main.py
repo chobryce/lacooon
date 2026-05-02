@@ -645,12 +645,12 @@ async def scan(request: Request, file: UploadFile = File(...)):
                     yield sse({
                         "type": "finding",
                         "package": {
-                            "name": result["name"],
-                            "version": result["version"],
-                            "ecosystem": result["ecosystem"],
-                            "severity": result["highest_severity"] or "NONE",
-                            "findings": result["matches"],
-                            "finding_count": result["finding_count"]
+                            "name": result.get("name") or filename,
+                            "version": result.get("version") or "source",
+                            "ecosystem": result.get("ecosystem") or "source_code",
+                            "severity": result.get("highest_severity") or "NONE",
+                            "findings": result.get("matches") or [],
+                            "finding_count": result.get("finding_count") or 0
                         }
                     })
                     yield sse({
