@@ -26,10 +26,6 @@ app = FastAPI(title="lacooon API", version="2.0.0")
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
-@app.post("/scan")
-@limiter.limit("5/minute")
-async def scan(request: Request, file: UploadFile = File(...)):
-
 SCAN_SEMAPHORE = asyncio.Semaphore(2)
 
 app.add_middleware(
@@ -551,35 +547,9 @@ def deduplicate_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     return out
 
 
-def scan_source_file(path: str, filename: str, data: bytes) -> Dict[str, Any]:
-    start = time.monotonic()
-    content = decode_text(data)
-
-    findings: List[Dict[str, Any]] = []
-    findings.extend(run_laocoon_source_rules(content, filename))
-    add_regex_findings(findings, content, filename, source_scan_rules())
-
-    if Path(filename.lower()).suffix in {".py", ".pyw", ".txt", ".log"} or re.search(
-        r"\b(import|def|class|subprocess|socket|base64|requests)\b",
-        content,
-    ):
-        findings.extend(ast_python_findings(content, filename))
-
-    findings = deduplicate_findings(findings)
-    highest = highest_severity(findings)
-
-    return {
-        "package": filename,
-        "version": "",
-        "ecosystem": "source-file",
-        "highest_severity": highest,
-        "scan_duration_ms": int((time.monotonic() - start) * 1000),
-        "finding_count": len(findings),
-        "advisory_urls": [],
-        "findings": findings,
-        "file_hash_sha256": sha256_bytes(data),
-    }
-
+@app.post("/scan")
+@limiter.limit("5/minute")
+async def scan(request: Request, file: UploadFile = File(...)):
     async def event_stream():
         async with SCAN_SEMAPHORE:
             tmp_dir = tempfile.mkdtemp(prefix="lacooon_")
@@ -609,21 +579,97 @@ def scan_source_file(path: str, filename: str, data: bytes) -> Dict[str, Any]:
                 content = decode_text(data)
                 kind = detect_file_kind(filename, content, data)
 
-            if kind == "binary":
+                if kind == "binary":
+                    yield sse({
+                        "type": "error",
+                        "message": "Binary files are not supported. Upload a text manifest or source-code file."
+                    })
+                    return
+
+                if kind == "source":
+                    yield sse({
+                        "type": "status",
+                        "phase": "scan",
+                        "message": "Detected source code. Running static malware-oriented source analysis..."
+                    })
+
+                    result = scan_source_file(tmp_path, filename, data)
+
+                    if result["finding_count"] > 0:
+                        yield sse({"type": "finding", "package": result})
+
+                    yield sse({
+                        "type": "summary",
+                        "total": 1,
+                        "flagged": 1 if result["finding_count"] else 0,
+                        "total_findings": result["finding_count"],
+                        "clean": result["finding_count"] == 0,
+                    })
+
+                    yield sse({"type": "done"})
+                    return
+
+                if kind == "manifest":
+                    yield sse({
+                        "type": "status",
+                        "phase": "parse",
+                        "message": "Detected dependency manifest. Parsing packages..."
+                    })
+
+                    manifest_path = normalize_manifest_path(filename, tmp_dir, data)
+                    packages = ManifestParser.from_file(manifest_path)
+
+                    yield sse({
+                        "type": "status",
+                        "phase": "scan",
+                        "message": f"Loaded {len(packages)} package(s). Running supply-chain scan..."
+                    })
+
+                    scanner = LaocoonScanner(deep=False)
+
+                    flagged = 0
+                    total_findings = 0
+
+                    for pkg in packages:
+                        yield sse({
+                            "type": "status",
+                            "phase": "scan",
+                            "message": f"Checking {pkg.name}@{pkg.version}..."
+                        })
+
+                        result = scanner.scan_package(pkg)
+
+                        if result.is_malicious:
+                            flagged += 1
+                            total_findings += len(result.matches)
+                            yield sse({"type": "finding", "package": result.to_dict()})
+
+                    yield sse({
+                        "type": "summary",
+                        "total": len(packages),
+                        "flagged": flagged,
+                        "total_findings": total_findings,
+                        "clean": flagged == 0,
+                    })
+
+                    yield sse({"type": "done"})
+                    return
+
                 yield sse({
                     "type": "error",
-                    "message": "Binary files are not supported. Upload a text manifest or source-code file."
+                    "message": "Unsupported file. Upload package.json, package-lock.json, pyproject.toml, requirements.txt, .py, .js, .ts, or .txt containing code."
                 })
-                return
 
-            if kind == "source":
+            except Exception:
                 yield sse({
-                    "type": "status",
-                    "phase": "scan",
-                    "message": "Detected source code. Running static malware-oriented source analysis..."
+                    "type": "error",
+                    "message": "Scan failed. The file may be malformed or unsupported."
                 })
 
-                result = scan_source_file(tmp_path, filename, data)
+            finally:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
                 if result["finding_count"] > 0:
                     yield sse({"type": "finding", "package": result})
