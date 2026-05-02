@@ -1570,8 +1570,24 @@ class SourceAnalyzer:
             filename = url.split("/")[-1].split("?")[0]
             path = os.path.join(dest_dir, filename)
             with open(path, "wb") as f:
-                for chunk in resp.iter_content(65536):
-                    f.write(chunk)
+            MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024  # 50MB
+          content_length = resp.headers.get("content-length")
+          if content_length and int(content_length) > MAX_DOWNLOAD_BYTES:
+              log.warning("Server reports file too large, aborting")
+              return None
+            total = 0
+            
+            for chunk in resp.iter_content(65536):
+                if not chunk:
+                    continue
+            
+                total += len(chunk)
+            
+                if total > MAX_DOWNLOAD_BYTES:
+                    log.warning("Download exceeded size limit, aborting")
+                    return None
+            
+                f.write(chunk)
             return path
         except Exception as e:
             log.warning(f"Source download failed: {e}")
