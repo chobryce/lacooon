@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Laocoon — supply chain scanner</title>
   <meta name="description" content="Drop your dependency manifest or file. We'll tell you what's malicious." />
-  
-  <!-- Icon added here -->
   <link rel="icon" type="image/png" href="favicon.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -14,7 +12,6 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
-    /* ── Reset & base ──────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -34,6 +31,7 @@
       --low:         #4af0b8;
       --info:        #4ab4f0;
       --clean:       #4af09a;
+      --warn:        #f0c74a;
       --mono:        'DM Mono', monospace;
       --sans:        'Syne', sans-serif;
       --radius:      6px;
@@ -51,7 +49,6 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Grain overlay ─────────────────────────────────────────────────────── */
     body::before {
       content: '';
       position: fixed; inset: 0;
@@ -61,14 +58,8 @@
       z-index: 9999;
     }
 
-    /* ── Layout ────────────────────────────────────────────────────────────── */
-    .wrap {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
 
-    /* ── Header ────────────────────────────────────────────────────────────── */
     header {
       padding: 48px 0 0;
       display: flex;
@@ -76,29 +67,35 @@
       gap: 16px;
     }
 
-    .logo {
-      font-family: var(--sans);
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: var(--text);
-    }
+    .logo { font-family: var(--sans); font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: var(--text); }
+    .logo span { color: var(--accent); }
+    .tagline { font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: .04em; }
 
-    .logo span {
-      color: var(--accent);
-    }
-
-    .tagline {
+    /* ── Server status pill ─────────────────────────────────────────────── */
+    .server-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      letter-spacing: .04em;
+      font-size: 10px;
+      color: var(--text-faint);
     }
 
-    /* ── Hero ──────────────────────────────────────────────────────────────── */
-    .hero {
-      padding: 72px 0 0;
+    .server-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--text-faint);
+      transition: background 400ms;
     }
+
+    .server-dot.warming { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
+    .server-dot.ready   { background: var(--clean); animation: none; }
+    .server-dot.error   { background: var(--critical); animation: none; }
+
+    /* ── Hero ────────────────────────────────────────────────────────────── */
+    .hero { padding: 72px 0 0; }
 
     .hero h1 {
       font-size: clamp(32px, 5vw, 52px);
@@ -109,10 +106,7 @@
       max-width: 540px;
     }
 
-    .hero h1 em {
-      font-style: normal;
-      color: var(--text-dim);
-    }
+    .hero h1 em { font-style: normal; color: var(--text-dim); }
 
     .hero p {
       margin-top: 18px;
@@ -123,12 +117,7 @@
       max-width: 480px;
     }
 
-    .hero-badges {
-      margin-top: 20px;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+    .hero-badges { margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
 
     .badge {
       font-family: var(--mono);
@@ -141,10 +130,8 @@
       background: var(--surface);
     }
 
-    /* ── Drop zone ─────────────────────────────────────────────────────────── */
-    .dropzone-wrap {
-      margin-top: 52px;
-    }
+    /* ── Drop zone ───────────────────────────────────────────────────────── */
+    .dropzone-wrap { margin-top: 52px; }
 
     .dropzone-label {
       font-family: var(--mono);
@@ -174,49 +161,15 @@
       box-shadow: 0 0 0 1px var(--accent), 0 0 32px var(--accent-glow);
     }
 
-    #dropzone.drag-over {
-      box-shadow: 0 0 0 1px var(--accent), 0 0 56px var(--accent-glow);
-    }
+    #dropzone.drag-over { box-shadow: 0 0 0 1px var(--accent), 0 0 56px var(--accent-glow); }
 
-    #file-input {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-    }
+    #file-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 
-    .drop-icon {
-      width: 36px;
-      height: 36px;
-      margin: 0 auto 16px;
-      opacity: .35;
-    }
+    .drop-icon { width: 36px; height: 36px; margin: 0 auto 16px; opacity: .35; }
+    .drop-primary { font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--text); }
+    .drop-secondary { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+    .drop-formats { font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 16px; letter-spacing: .04em; }
 
-    .drop-primary {
-      font-family: var(--sans);
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .drop-secondary {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      margin-top: 6px;
-    }
-
-    .drop-formats {
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--text-faint);
-      margin-top: 16px;
-      letter-spacing: .04em;
-    }
-
-    /* File selected state */
     .file-selected-row {
       display: none;
       align-items: center;
@@ -230,44 +183,14 @@
 
     .file-selected-row.visible { display: flex; }
 
-    .file-name {
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--text);
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    .file-name { font-family: var(--mono); font-size: 12px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-size { font-family: var(--mono); font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
 
-    .file-size {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      flex-shrink: 0;
-    }
-
-    .btn-clear {
-      background: none;
-      border: none;
-      color: var(--text-dim);
-      cursor: pointer;
-      padding: 4px;
-      line-height: 1;
-      transition: color var(--transition);
-      flex-shrink: 0;
-    }
-
+    .btn-clear { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 4px; line-height: 1; transition: color var(--transition); flex-shrink: 0; }
     .btn-clear:hover { color: var(--critical); }
 
-    /* ── Scan button ───────────────────────────────────────────────────────── */
-    .scan-row {
-      margin-top: 16px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
+    /* ── Scan button + rate limit notice ────────────────────────────────── */
+    .scan-row { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
 
     #btn-scan {
       font-family: var(--sans);
@@ -287,38 +210,37 @@
 
     #btn-scan::after {
       content: '';
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       background: linear-gradient(180deg, rgba(255,255,255,.08) 0%, transparent 100%);
       pointer-events: none;
     }
 
-    #btn-scan:hover:not(:disabled) {
-      box-shadow: 0 0 24px rgba(91,106,240,.45);
-      transform: translateY(-1px);
-    }
+    #btn-scan:hover:not(:disabled) { box-shadow: 0 0 24px rgba(91,106,240,.45); transform: translateY(-1px); }
+    #btn-scan:disabled { opacity: .38; cursor: not-allowed; transform: none; }
 
-    #btn-scan:disabled {
-      opacity: .38;
-      cursor: not-allowed;
-      transform: none;
-    }
+    .scan-note { font-family: var(--mono); font-size: 10px; color: var(--text-faint); line-height: 1.5; }
 
-    .scan-note {
+    /* ── Rate limit / busy banner ───────────────────────────────────────── */
+    #rate-banner {
+      display: none;
+      margin-top: 12px;
+      padding: 10px 16px;
+      background: rgba(240,199,74,.07);
+      border: 1px solid rgba(240,199,74,.22);
+      border-radius: var(--radius);
       font-family: var(--mono);
-      font-size: 10px;
-      color: var(--text-faint);
+      font-size: 11px;
+      color: var(--warn);
       line-height: 1.5;
     }
 
-    /* ── Results panel ─────────────────────────────────────────────────────── */
-    #results-panel {
-      margin-top: 40px;
-      display: none;
-      flex-direction: column;
-      gap: 0;
-    }
+    #rate-banner.visible { display: block; }
 
+    /* countdown inside banner */
+    #rate-countdown { font-weight: 500; }
+
+    /* ── Results panel ───────────────────────────────────────────────────── */
+    #results-panel { margin-top: 40px; display: none; flex-direction: column; gap: 0; }
     #results-panel.visible { display: flex; }
 
     .results-header {
@@ -330,41 +252,41 @@
       margin-bottom: 0;
     }
 
-    .results-title {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--text-faint);
-    }
+    .results-title { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); }
 
-    .results-status {
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+    .results-status { font-family: var(--mono); font-size: 10px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
 
-    /* Pulse dot */
-    .pulse-dot {
-      width: 6px;
-      height: 6px;
-      background: var(--accent);
-      border-radius: 50%;
-      flex-shrink: 0;
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-
+    .pulse-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex-shrink: 0; animation: pulse 1.2s ease-in-out infinite; }
     .pulse-dot.stopped { animation: none; background: var(--text-faint); }
     .pulse-dot.clean   { animation: none; background: var(--clean); }
     .pulse-dot.threat  { animation: none; background: var(--critical); }
+    .pulse-dot.timeout { animation: none; background: var(--warn); }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50%       { opacity: .4; transform: scale(.7); }
     }
+
+    /* ── Scan timeout progress bar ──────────────────────────────────────── */
+    #timeout-bar-wrap {
+      height: 2px;
+      background: var(--border);
+      border-radius: 1px;
+      overflow: hidden;
+      display: none;
+    }
+
+    #timeout-bar-wrap.visible { display: block; }
+
+    #timeout-bar {
+      height: 100%;
+      background: var(--accent);
+      width: 100%;
+      transform-origin: left;
+      transition: transform linear;
+    }
+
+    #timeout-bar.draining { transform: scaleX(0); }
 
     /* Stream box */
     #stream-box {
@@ -382,268 +304,77 @@
       position: relative;
     }
 
-    /* ── Stream entries ─────────────────────────────────────────────────────── */
-    .stream-line {
-      display: flex;
-      gap: 10px;
-      padding: 3px 0;
-      opacity: 0;
-      transform: translateY(4px);
-      animation: line-in 200ms forwards;
-    }
+    .stream-line { display: flex; gap: 10px; padding: 3px 0; opacity: 0; transform: translateY(4px); animation: line-in 200ms forwards; }
 
-    @keyframes line-in {
-      to { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes line-in { to { opacity: 1; transform: translateY(0); } }
 
-    .stream-ts {
-      color: var(--text-faint);
-      flex-shrink: 0;
-      user-select: none;
-    }
-
-    .stream-tag {
-      font-size: 9px;
-      letter-spacing: .08em;
-      padding: 1px 5px;
-      border-radius: 2px;
-      flex-shrink: 0;
-      align-self: center;
-    }
-
+    .stream-ts { color: var(--text-faint); flex-shrink: 0; user-select: none; }
+    .stream-tag { font-size: 9px; letter-spacing: .08em; padding: 1px 5px; border-radius: 2px; flex-shrink: 0; align-self: center; }
     .tag-status  { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border2); }
     .tag-finding { background: rgba(240,74,74,.12); color: var(--critical); border: 1px solid rgba(240,74,74,.25); }
     .tag-clean   { background: rgba(74,240,154,.1); color: var(--clean); border: 1px solid rgba(74,240,154,.2); }
     .tag-error   { background: rgba(240,74,74,.1); color: var(--critical); border: 1px solid rgba(240,74,74,.2); }
+    .tag-warn    { background: rgba(240,199,74,.1); color: var(--warn); border: 1px solid rgba(240,199,74,.2); }
 
-    .stream-text {
-      color: var(--text);
-      word-break: break-word;
-      flex: 1;
-    }
-
+    .stream-text { color: var(--text); word-break: break-word; flex: 1; }
     .stream-dim  { color: var(--text-dim); }
     .stream-faint{ color: var(--text-faint); }
 
-    /* ── Finding card ──────────────────────────────────────────────────────── */
-    .finding-card {
-      margin: 12px 0;
-      border: 1px solid var(--border2);
-      border-radius: var(--radius);
-      overflow: hidden;
-      opacity: 0;
-      transform: translateY(6px);
-      animation: line-in 220ms forwards;
-    }
+    /* ── Finding card ────────────────────────────────────────────────────── */
+    .finding-card { margin: 12px 0; border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; opacity: 0; transform: translateY(6px); animation: line-in 220ms forwards; }
 
-    .finding-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      background: var(--surface2);
-      cursor: pointer;
-      user-select: none;
-      border-bottom: 1px solid transparent;
-      transition: border-color var(--transition);
-    }
-
+    .finding-header { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface2); cursor: pointer; user-select: none; border-bottom: 1px solid transparent; transition: border-color var(--transition); }
     .finding-header:hover { border-bottom-color: var(--border2); }
 
-    .finding-sev {
-      font-size: 9px;
-      letter-spacing: .1em;
-      font-weight: 500;
-      padding: 2px 7px;
-      border-radius: 2px;
-      flex-shrink: 0;
-    }
-
+    .finding-sev { font-size: 9px; letter-spacing: .1em; font-weight: 500; padding: 2px 7px; border-radius: 2px; flex-shrink: 0; }
     .sev-CRITICAL { background: rgba(240,74,74,.18); color: var(--critical); border: 1px solid rgba(240,74,74,.3); }
     .sev-HIGH     { background: rgba(240,130,74,.15); color: var(--high); border: 1px solid rgba(240,130,74,.28); }
     .sev-MEDIUM   { background: rgba(240,199,74,.12); color: var(--medium); border: 1px solid rgba(240,199,74,.22); }
     .sev-LOW      { background: rgba(74,240,184,.1); color: var(--low); border: 1px solid rgba(74,240,184,.2); }
 
-    .finding-pkg {
-      color: var(--text);
-      font-weight: 500;
-      flex: 1;
-      font-size: 13px;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    .finding-pkg { color: var(--text); font-weight: 500; flex: 1; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .finding-version { color: var(--text-faint); font-size: 11px; }
+    .finding-count { font-size: 10px; color: var(--text-dim); flex-shrink: 0; }
 
-    .finding-version {
-      color: var(--text-faint);
-      font-size: 11px;
-    }
-
-    .finding-count {
-      font-size: 10px;
-      color: var(--text-dim);
-      flex-shrink: 0;
-    }
-
-    .chevron {
-      flex-shrink: 0;
-      transition: transform var(--transition);
-      color: var(--text-faint);
-    }
-
+    .chevron { flex-shrink: 0; transition: transform var(--transition); color: var(--text-faint); }
     .finding-card.expanded .chevron { transform: rotate(180deg); }
 
-    .finding-body {
-      display: none;
-      padding: 0;
-    }
-
+    .finding-body { display: none; padding: 0; }
     .finding-card.expanded .finding-body { display: block; }
 
-    .finding-row {
-      padding: 10px 14px;
-      border-top: 1px solid var(--border);
-      display: grid;
-      grid-template-columns: 90px 1fr;
-      gap: 8px;
-    }
+    .finding-row { padding: 10px 14px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 90px 1fr; gap: 8px; }
+    .finding-row-label { font-size: 10px; color: var(--text-faint); letter-spacing: .06em; padding-top: 1px; }
+    .finding-row-value { font-size: 11px; color: var(--text); word-break: break-word; }
 
-    .finding-row-label {
-      font-size: 10px;
-      color: var(--text-faint);
-      letter-spacing: .06em;
-      padding-top: 1px;
-    }
+    .finding-rule-id { display: inline-block; font-size: 9px; padding: 1px 5px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 2px; color: var(--text-dim); margin-right: 6px; margin-bottom: 4px; }
 
-    .finding-row-value {
-      font-size: 11px;
-      color: var(--text);
-      word-break: break-word;
-    }
-
-    .finding-rule-id {
-      display: inline-block;
-      font-size: 9px;
-      padding: 1px 5px;
-      background: var(--surface2);
-      border: 1px solid var(--border2);
-      border-radius: 2px;
-      color: var(--text-dim);
-      margin-right: 6px;
-      margin-bottom: 4px;
-    }
-
-    .advisory-link {
-      color: var(--accent);
-      text-decoration: none;
-      font-size: 11px;
-      word-break: break-all;
-      transition: opacity var(--transition);
-    }
-
+    .advisory-link { color: var(--accent); text-decoration: none; font-size: 11px; word-break: break-all; transition: opacity var(--transition); }
     .advisory-link:hover { opacity: .7; }
 
-    /* ── Summary banner ────────────────────────────────────────────────────── */
-    #summary-banner {
-      display: none;
-      padding: 16px 20px;
-      border-radius: var(--radius);
-      border: 1px solid;
-      margin-top: 20px;
-      font-family: var(--mono);
-      font-size: 12px;
-      line-height: 1.6;
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity 300ms, transform 300ms;
-    }
+    /* ── Summary banner ──────────────────────────────────────────────────── */
+    #summary-banner { display: none; padding: 16px 20px; border-radius: var(--radius); border: 1px solid; margin-top: 20px; font-family: var(--mono); font-size: 12px; line-height: 1.6; opacity: 0; transform: translateY(6px); transition: opacity 300ms, transform 300ms; }
+    #summary-banner.visible { display: block; }
+    #summary-banner.show { opacity: 1; transform: translateY(0); }
+    #summary-banner.clean { background: rgba(74,240,154,.06); border-color: rgba(74,240,154,.22); color: var(--clean); }
+    #summary-banner.threats { background: rgba(240,74,74,.06); border-color: rgba(240,74,74,.22); color: var(--text); }
 
-    #summary-banner.visible {
-      display: block;
-    }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 14px; }
+    .summary-stat { display: flex; flex-direction: column; gap: 3px; }
+    .summary-stat-val { font-size: 22px; font-family: var(--sans); font-weight: 700; }
+    .summary-stat-label { font-size: 10px; color: var(--text-dim); letter-spacing: .08em; text-transform: uppercase; }
 
-    #summary-banner.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    #summary-banner.clean {
-      background: rgba(74,240,154,.06);
-      border-color: rgba(74,240,154,.22);
-      color: var(--clean);
-    }
-
-    #summary-banner.threats {
-      background: rgba(240,74,74,.06);
-      border-color: rgba(240,74,74,.22);
-      color: var(--text);
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-top: 14px;
-    }
-
-    .summary-stat {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
-    .summary-stat-val {
-      font-size: 22px;
-      font-family: var(--sans);
-      font-weight: 700;
-    }
-
-    .summary-stat-label {
-      font-size: 10px;
-      color: var(--text-dim);
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-
-    /* ── Footer ────────────────────────────────────────────────────────────── */
-    footer {
-      padding: 60px 0 40px;
-      border-top: 1px solid var(--border);
-      margin-top: 80px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .footer-left {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-faint);
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 20px;
-    }
-
-    .footer-links a {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      text-decoration: none;
-      transition: color var(--transition);
-    }
-
+    /* ── Footer ──────────────────────────────────────────────────────────── */
+    footer { padding: 60px 0 40px; border-top: 1px solid var(--border); margin-top: 80px; display: flex; justify-content: space-between; align-items: center; }
+    .footer-left { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-family: var(--mono); font-size: 11px; color: var(--text-dim); text-decoration: none; transition: color var(--transition); }
     .footer-links a:hover { color: var(--text); }
 
-    /* ── Scrollbar ─────────────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
 
-    /* ── Responsive ────────────────────────────────────────────────────────── */
     @media (max-width: 600px) {
       .hero h1 { font-size: 28px; letter-spacing: -.8px; }
       .summary-grid { grid-template-columns: 1fr 1fr; }
@@ -655,13 +386,17 @@
 <body>
 <div class="wrap">
 
-  <!-- Header -->
   <header>
     <div class="logo">Laoc<span>oo</span>n</div>
     <div class="tagline">// supply chain scanner</div>
+    <!-- FIX 1: Server warmup status pill — shows users the server is waking up
+         so the 50s cold start doesn't feel like a broken site -->
+    <div class="server-status" id="server-status" aria-live="polite">
+      <span class="server-dot warming" id="server-dot"></span>
+      <span id="server-status-text">warming up</span>
+    </div>
   </header>
 
-  <!-- Hero -->
   <section class="hero">
     <h1>Drop your file.<br><em>We find what's malicious.</em></h1>
     <p>Analyze files, dependencies, and source code for malware, supply chain risks, and suspicious behavior. Combines vulnerability intelligence (OSV, GHSA), typosquatting detection, and static code heuristics to identify threats across manifests and raw code. All files are processed securely and discarded immediately after analysis.</p>
@@ -674,7 +409,6 @@
     </div>
   </section>
 
-  <!-- Drop zone -->
   <section class="dropzone-wrap">
     <div class="dropzone-label">manifest file</div>
 
@@ -682,8 +416,7 @@
       <input id="file-input" type="file" accept="*/*" aria-label="Choose file" />
 
       <svg class="drop-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6 28h24M18 8v16M18 8l-6 6M18 8l6 6" stroke="currentColor"
-              stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6 28h24M18 8v16M18 8l-6 6M18 8l6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
 
       <div class="drop-primary">Drop file here or click to browse</div>
@@ -713,9 +446,16 @@
         Files processed server-side.<br>Temp files deleted immediately after scan.
       </div>
     </div>
+
+    <!-- FIX 2: Rate limit / busy notice with live countdown.
+         Hidden by default. Shown on 429 or 503 responses.
+         Countdown auto-retries so the user doesn't have to babysit it. -->
+    <div id="rate-banner" role="alert">
+      Scanner is busy — retrying in <span id="rate-countdown">30</span>s.
+      Too many scans are running at once. Your scan will start automatically.
+    </div>
   </section>
 
-  <!-- Results -->
   <section id="results-panel">
     <div class="results-header">
       <span class="results-title">scan output</span>
@@ -723,6 +463,12 @@
         <span class="pulse-dot" id="pulse-dot"></span>
         <span id="status-text">initializing</span>
       </span>
+    </div>
+
+    <!-- FIX 3: Timeout progress bar. Drains over SCAN_TIMEOUT_MS so the user
+         can see time passing rather than staring at an infinite spinner. -->
+    <div id="timeout-bar-wrap">
+      <div id="timeout-bar"></div>
     </div>
 
     <div id="stream-box" aria-live="polite" aria-label="Scan results stream"></div>
@@ -742,320 +488,440 @@
     </nav>
   </footer>
 
-</div><!-- /wrap -->
+</div>
 
 <script>
-  'use strict';
+'use strict';
 
-  // ── Config ────────────────────────────────────────────────────────────────
 const API_BASE = 'https://lacooon-api.onrender.com';
 
-  // ── DOM refs ──────────────────────────────────────────────────────────────
-  const dropzone       = document.getElementById('dropzone');
-  const fileInput      = document.getElementById('file-input');
-  const fileRow        = document.getElementById('file-row');
-  const fileNameLabel  = document.getElementById('file-name-label');
-  const fileSizeLabel  = document.getElementById('file-size-label');
-  const btnClear       = document.getElementById('btn-clear');
-  const btnScan        = document.getElementById('btn-scan');
-  const resultsPanel   = document.getElementById('results-panel');
-  const streamBox      = document.getElementById('stream-box');
-  const pulseDot       = document.getElementById('pulse-dot');
-  const statusText     = document.getElementById('status-text');
-  const summaryBanner  = document.getElementById('summary-banner');
-  const summaryMessage = document.getElementById('summary-message');
-  const summaryGrid    = document.getElementById('summary-grid');
+// ── FIX 3: Scan timeout ───────────────────────────────────────────────────
+// If a scan runs longer than this, we give up client-side and tell the user.
+// Set to 90s — generous for a large manifest on a single worker.
+// Matches or is slightly above whatever asyncio.timeout() you set server-side.
+const SCAN_TIMEOUT_MS = 90_000;
 
-  let selectedFile = null;
-  let activeScan   = null;   // AbortController
+// ── FIX 2: Rate limit retry delay ─────────────────────────────────────────
+// When the server returns 429 or 503, wait this long then auto-retry once.
+const RATE_RETRY_DELAY_S = 30;
 
-  // ── File helpers ──────────────────────────────────────────────────────────
-  function fmtBytes(n) {
-    if (n < 1024)       return n + ' B';
-    if (n < 1048576)    return (n / 1024).toFixed(1) + ' KB';
-    return (n / 1048576).toFixed(1) + ' MB';
+// ── DOM refs ──────────────────────────────────────────────────────────────
+const dropzone        = document.getElementById('dropzone');
+const fileInput       = document.getElementById('file-input');
+const fileRow         = document.getElementById('file-row');
+const fileNameLabel   = document.getElementById('file-name-label');
+const fileSizeLabel   = document.getElementById('file-size-label');
+const btnClear        = document.getElementById('btn-clear');
+const btnScan         = document.getElementById('btn-scan');
+const resultsPanel    = document.getElementById('results-panel');
+const streamBox       = document.getElementById('stream-box');
+const pulseDot        = document.getElementById('pulse-dot');
+const statusText      = document.getElementById('status-text');
+const summaryBanner   = document.getElementById('summary-banner');
+const summaryMessage  = document.getElementById('summary-message');
+const summaryGrid     = document.getElementById('summary-grid');
+const rateBanner      = document.getElementById('rate-banner');
+const rateCountdown   = document.getElementById('rate-countdown');
+const timeoutBarWrap  = document.getElementById('timeout-bar-wrap');
+const timeoutBar      = document.getElementById('timeout-bar');
+const serverDot       = document.getElementById('server-dot');
+const serverStatusEl  = document.getElementById('server-status-text');
+
+let selectedFile  = null;
+let activeScan    = null;   // AbortController
+let scanTimer     = null;   // timeout handle
+let retryTimer    = null;   // rate-limit countdown handle
+let retryFile     = null;   // file queued for auto-retry
+
+// ── FIX 1: Warmup ping ───────────────────────────────────────────────────
+// Fire immediately on page load. The /ping endpoint should return {ok:true}.
+// This wakes the Render free-tier instance while the user reads the page,
+// so the 50s cold-start hits NOW instead of after they click Scan.
+(async function warmup() {
+  try {
+    const r = await fetch(`${API_BASE}/ping`, { method: 'GET' });
+    if (r.ok) {
+      serverDot.className = 'server-dot ready';
+      serverStatusEl.textContent = 'server ready';
+    } else {
+      throw new Error('non-ok');
+    }
+  } catch {
+    serverDot.className = 'server-dot error';
+    serverStatusEl.textContent = 'server unreachable';
   }
+})();
 
-  const ALLOWED = new Set([
-    'package.json', 'package-lock.json', 'pyproject.toml', 'requirements.txt',
-  ]);
+// ── File helpers ──────────────────────────────────────────────────────────
+function fmtBytes(n) {
+  if (n < 1024)    return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(1) + ' MB';
+}
 
-  function acceptFile(f) {
-    if (!f) return;
-  
-    if (f.size > 5 * 1024 * 1024) {
-      appendStatus('File exceeds 5 MB limit.', 'error');
+function acceptFile(f) {
+  if (!f) return;
+  if (f.size > 5 * 1024 * 1024) {
+    appendStatus('File exceeds 5 MB limit.', 'error');
+    return;
+  }
+  selectedFile = f;
+  fileNameLabel.textContent = f.name;
+  fileSizeLabel.textContent = fmtBytes(f.size);
+  fileRow.classList.add('visible');
+  btnScan.disabled = false;
+  hideRateBanner();
+}
+
+function clearFile() {
+  selectedFile = null;
+  fileInput.value = '';
+  fileRow.classList.remove('visible');
+  btnScan.disabled = true;
+  hideRateBanner();
+  cancelRetry();
+}
+
+// ── Drag & drop ───────────────────────────────────────────────────────────
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const f = e.dataTransfer?.files?.[0];
+  if (f) acceptFile(f);
+});
+dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+fileInput.addEventListener('change', () => { const f = fileInput.files?.[0]; if (f) acceptFile(f); });
+btnClear.addEventListener('click', clearFile);
+
+// ── Stream box helpers ────────────────────────────────────────────────────
+function now() {
+  return new Date().toLocaleTimeString('en-US', { hour12: false });
+}
+
+function appendRaw(html) {
+  streamBox.insertAdjacentHTML('beforeend', html);
+  streamBox.scrollTop = streamBox.scrollHeight;
+}
+
+function appendStatus(msg, type = 'status') {
+  const tagClass = type === 'error' ? 'tag-error' : type === 'warn' ? 'tag-warn' : 'tag-status';
+  const tag      = type === 'error' ? 'ERR' : type === 'warn' ? 'WAIT' : 'SYS';
+  appendRaw(`
+    <div class="stream-line">
+      <span class="stream-ts stream-faint">${now()}</span>
+      <span class="stream-tag ${tagClass}">${tag}</span>
+      <span class="stream-text stream-dim">${escHtml(msg)}</span>
+    </div>`);
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── FIX 4: Safe URL validation before rendering advisory links ─────────────
+// escHtml alone doesn't stop javascript: URLs. We check the scheme first.
+function safeAdvisoryUrl(u) {
+  try {
+    const parsed = new URL(u);
+    return parsed.protocol === 'https:' ? u : null;
+  } catch {
+    return null;
+  }
+}
+
+function appendFinding(pkg) {
+  const sev  = pkg.highest_severity || 'LOW';
+  const name = pkg.package || '?';
+  const ver  = pkg.version  || '';
+  const cnt  = (pkg.findings || []).length;
+
+  const rows = (pkg.findings || []).map(f => {
+    // Only render advisory URLs that are valid https:// links
+    const advisoryHTML = (pkg.advisory_urls || [])
+      .slice(0, 3)
+      .map(u => safeAdvisoryUrl(u))
+      .filter(Boolean)
+      .map(u => `<a class="advisory-link" href="${escHtml(u)}" target="_blank" rel="noopener noreferrer">${escHtml(u)}</a><br>`)
+      .join('');
+
+    return `
+      <div class="finding-row">
+        <div class="finding-row-label">RULE</div>
+        <div class="finding-row-value">
+          <span class="finding-rule-id">${escHtml(f.rule_id)}</span>${escHtml(f.rule_name)}
+        </div>
+      </div>
+      <div class="finding-row">
+        <div class="finding-row-label">DETAIL</div>
+        <div class="finding-row-value">${escHtml(f.description)}</div>
+      </div>
+      <div class="finding-row">
+        <div class="finding-row-label">EVIDENCE</div>
+        <div class="finding-row-value stream-dim">${escHtml((f.evidence || '').slice(0, 200))}</div>
+      </div>
+      ${advisoryHTML ? `<div class="finding-row">
+        <div class="finding-row-label">ADVISORY</div>
+        <div class="finding-row-value">${advisoryHTML}</div>
+      </div>` : ''}`;
+  }).join('');
+
+  const id = 'fc-' + Math.random().toString(36).slice(2);
+
+  appendRaw(`
+    <div class="finding-card" id="${id}">
+      <div class="finding-header" onclick="toggleCard('${id}')">
+        <span class="finding-sev sev-${escHtml(sev)}">${escHtml(sev)}</span>
+        <span class="finding-pkg">${escHtml(name)}</span>
+        <span class="finding-version">${escHtml(ver)}</span>
+        <span class="finding-count">${cnt} finding${cnt !== 1 ? 's' : ''}</span>
+        <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="finding-body">${rows}</div>
+    </div>`);
+
+  streamBox.scrollTop = streamBox.scrollHeight;
+}
+
+window.toggleCard = function(id) {
+  document.getElementById(id)?.classList.toggle('expanded');
+};
+
+// ── Rate limit UI ─────────────────────────────────────────────────────────
+function showRateBanner(file) {
+  retryFile = file;
+  rateBanner.classList.add('visible');
+  let remaining = RATE_RETRY_DELAY_S;
+  rateCountdown.textContent = remaining;
+
+  retryTimer = setInterval(() => {
+    remaining--;
+    rateCountdown.textContent = remaining;
+    if (remaining <= 0) {
+      hideRateBanner();
+      if (retryFile) startScan(retryFile);
+    }
+  }, 1000);
+}
+
+function hideRateBanner() {
+  rateBanner.classList.remove('visible');
+  cancelRetry();
+}
+
+function cancelRetry() {
+  if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+  retryFile = null;
+}
+
+// ── Timeout bar ───────────────────────────────────────────────────────────
+function startTimeoutBar() {
+  timeoutBarWrap.classList.add('visible');
+  timeoutBar.style.transition = 'none';
+  timeoutBar.style.transform = 'scaleX(1)';
+  // Force reflow so the transition reset takes effect
+  timeoutBar.offsetWidth;
+  timeoutBar.style.transition = `transform ${SCAN_TIMEOUT_MS}ms linear`;
+  timeoutBar.classList.add('draining');
+}
+
+function stopTimeoutBar() {
+  timeoutBar.classList.remove('draining');
+  timeoutBarWrap.classList.remove('visible');
+  timeoutBar.style.transition = 'none';
+  timeoutBar.style.transform = 'scaleX(1)';
+}
+
+// ── Scan ──────────────────────────────────────────────────────────────────
+btnScan.addEventListener('click', () => {
+  if (!selectedFile) return;
+  hideRateBanner();
+  startScan(selectedFile);
+});
+
+async function startScan(file) {
+  if (activeScan) { activeScan.abort(); activeScan = null; }
+  if (scanTimer)  { clearTimeout(scanTimer); scanTimer = null; }
+
+  streamBox.innerHTML = '';
+  summaryBanner.className = 'visible';
+  summaryBanner.classList.remove('show');
+  summaryMessage.textContent = '';
+  summaryGrid.innerHTML = '';
+  resultsPanel.classList.add('visible');
+  pulseDot.className = 'pulse-dot';
+  statusText.textContent = 'scanning';
+  btnScan.disabled = true;
+
+  appendStatus(`File: ${file.name} (${fmtBytes(file.size)})`);
+  appendStatus('Connecting to scanner...');
+  startTimeoutBar();
+
+  const body = new FormData();
+  body.append('file', file, file.name);
+
+  const controller = new AbortController();
+  activeScan = controller;
+
+  // ── FIX 3: Hard client-side timeout ──────────────────────────────────
+  // If we haven't finished in SCAN_TIMEOUT_MS, abort and tell the user.
+  // This prevents "infinite spinner of death" when the server is stuck.
+  scanTimer = setTimeout(() => {
+    controller.abort();
+    stopTimeoutBar();
+    appendStatus(`Scan timed out after ${SCAN_TIMEOUT_MS / 1000}s. The server may be overloaded — try again shortly.`, 'error');
+    setStatus('timeout', 'timed out');
+    btnScan.disabled = false;
+    activeScan = null;
+  }, SCAN_TIMEOUT_MS);
+
+  let totalPackages  = 0;
+  let flaggedPackages = 0;
+  let totalFindings  = 0;
+  let isClean        = null;
+
+  try {
+    const resp = await fetch(`${API_BASE}/scan`, {
+      method: 'POST',
+      body,
+      signal: controller.signal,
+    });
+
+    // ── FIX 2: Rate limit / busy handling ────────────────────────────────
+    // 429 = rate limited by slowapi. 503 = server overloaded / starting up.
+    // Both mean "try again later" — show a countdown and auto-retry.
+    if (resp.status === 429 || resp.status === 503) {
+      clearTimeout(scanTimer);
+      stopTimeoutBar();
+      btnScan.disabled = false;
+      activeScan = null;
+
+      const retryAfter = parseInt(resp.headers.get('Retry-After') || '0', 10);
+      const waitS = retryAfter > 0 ? retryAfter : RATE_RETRY_DELAY_S;
+
+      appendStatus(
+        resp.status === 429
+          ? 'Rate limit hit — too many scans. Auto-retrying shortly.'
+          : 'Server is starting up or busy. Auto-retrying shortly.',
+        'warn'
+      );
+      setStatus('stopped', resp.status === 429 ? 'rate limited' : 'server busy');
+      showRateBanner(file);
       return;
     }
-  
-    selectedFile = f;
-    fileNameLabel.textContent = f.name;
-    fileSizeLabel.textContent = fmtBytes(f.size);
-    fileRow.classList.add('visible');
-    btnScan.disabled = false;
-  }
 
-  function clearFile() {
-    selectedFile = null;
-    fileInput.value = '';
-    fileRow.classList.remove('visible');
-    btnScan.disabled = true;
-  }
-
-  // ── Drag & drop ───────────────────────────────────────────────────────────
-  dropzone.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropzone.classList.add('drag-over');
-  });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
-  dropzone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropzone.classList.remove('drag-over');
-    const f = e.dataTransfer?.files?.[0];
-    if (f) acceptFile(f);
-  });
-  dropzone.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') fileInput.click();
-  });
-
-  fileInput.addEventListener('change', () => {
-    const f = fileInput.files?.[0];
-    if (f) acceptFile(f);
-  });
-
-  btnClear.addEventListener('click', clearFile);
-
-  // ── Stream box helpers ────────────────────────────────────────────────────
-  function now() {
-    return new Date().toLocaleTimeString('en-US', { hour12: false });
-  }
-
-  function appendRaw(html) {
-    streamBox.insertAdjacentHTML('beforeend', html);
-    streamBox.scrollTop = streamBox.scrollHeight;
-  }
-
-  function appendStatus(msg, type = 'status') {
-    const tagClass = type === 'error' ? 'tag-error' : 'tag-status';
-    const tag      = type === 'error' ? 'ERR' : 'SYS';
-    appendRaw(`
-      <div class="stream-line">
-        <span class="stream-ts stream-faint">${now()}</span>
-        <span class="stream-tag ${tagClass}">${tag}</span>
-        <span class="stream-text stream-dim">${escHtml(msg)}</span>
-      </div>`);
-  }
-
-  function escHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  function appendFinding(pkg) {
-    const sev  = pkg.highest_severity || 'LOW';
-    const name = pkg.package || '?';
-    const ver  = pkg.version  || '';
-    const cnt  = (pkg.findings || []).length;
-
-    const rows = (pkg.findings || []).map(f => {
-      const advisoryHTML = (pkg.advisory_urls || []).length > 0
-        ? (pkg.advisory_urls || []).slice(0, 3).map(u =>
-            `<a class="advisory-link" href="${escHtml(u)}" target="_blank" rel="noopener">${escHtml(u)}</a><br>`
-          ).join('')
-        : '';
-
-      return `
-        <div class="finding-row">
-          <div class="finding-row-label">RULE</div>
-          <div class="finding-row-value">
-            <span class="finding-rule-id">${escHtml(f.rule_id)}</span>${escHtml(f.rule_name)}
-          </div>
-        </div>
-        <div class="finding-row">
-          <div class="finding-row-label">DETAIL</div>
-          <div class="finding-row-value">${escHtml(f.description)}</div>
-        </div>
-        <div class="finding-row">
-          <div class="finding-row-label">EVIDENCE</div>
-          <div class="finding-row-value stream-dim">${escHtml((f.evidence || '').slice(0, 200))}</div>
-        </div>
-        ${advisoryHTML ? `<div class="finding-row">
-          <div class="finding-row-label">ADVISORY</div>
-          <div class="finding-row-value">${advisoryHTML}</div>
-        </div>` : ''}`;
-    }).join('');
-
-    const id = 'fc-' + Math.random().toString(36).slice(2);
-
-    appendRaw(`
-      <div class="finding-card" id="${id}">
-        <div class="finding-header" onclick="toggleCard('${id}')">
-          <span class="finding-sev sev-${sev}">${sev}</span>
-          <span class="finding-pkg">${escHtml(name)}</span>
-          <span class="finding-version">${escHtml(ver)}</span>
-          <span class="finding-count">${cnt} finding${cnt !== 1 ? 's' : ''}</span>
-          <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div class="finding-body">${rows}</div>
-      </div>`);
-
-    streamBox.scrollTop = streamBox.scrollHeight;
-  }
-
-  window.toggleCard = function(id) {
-    document.getElementById(id)?.classList.toggle('expanded');
-  };
-
-  // ── Scan ──────────────────────────────────────────────────────────────────
-  btnScan.addEventListener('click', () => {
-    if (!selectedFile) return;
-    startScan(selectedFile);
-  });
-
-  async function startScan(file) {
-    // Abort any previous
-    if (activeScan) {
-      activeScan.abort();
-      activeScan = null;
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      appendStatus(err.detail || 'Server error', 'error');
+      setStatus('stopped', 'error');
+      return;
     }
 
-    // Reset UI
-    streamBox.innerHTML = '';
-    summaryBanner.className = 'visible';
-    summaryBanner.classList.remove('show');
-    summaryMessage.textContent = '';
-    summaryGrid.innerHTML = '';
-    resultsPanel.classList.add('visible');
-    pulseDot.className = 'pulse-dot';
-    statusText.textContent = 'scanning';
-    btnScan.disabled = true;
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-    appendStatus(`File: ${file.name} (${fmtBytes(file.size)})`);
-    appendStatus('Connecting to scanner...');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    const body = new FormData();
-    body.append('file', file, file.name);
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();
 
-    const controller = new AbortController();
-    activeScan = controller;
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith('data:')) continue;
+        let payload;
+        try { payload = JSON.parse(line.slice(5).trim()); }
+        catch { continue; }
 
-    let totalPackages = 0;
-    let flaggedPackages = 0;
-    let totalFindings = 0;
-    let isClean = null;
+        const type = payload.type;
 
-    try {
-      const resp = await fetch(`${API_BASE}/scan`, {
-        method: 'POST',
-        body,
-        signal: controller.signal,
-      });
+        if (type === 'status') {
+          appendStatus(payload.message);
+          statusText.textContent = payload.phase || 'scanning';
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
-        appendStatus(err.detail || 'Server error', 'error');
-        setStatus('stopped', 'error');
-        return;
-      }
+        } else if (type === 'finding') {
+          const p = payload.package;
+          appendFinding(p);
+          flaggedPackages++;
+          totalFindings += (p.findings || []).length;
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+        } else if (type === 'summary') {
+          totalPackages   = payload.total || 0;
+          flaggedPackages = payload.flagged || 0;
+          totalFindings   = payload.total_findings || 0;
+          isClean         = payload.clean;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        } else if (type === 'error') {
+          appendStatus(payload.message, 'error');
+          setStatus('stopped', 'error');
 
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop();
-
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith('data:')) continue;
-          let payload;
-          try { payload = JSON.parse(line.slice(5).trim()); }
-          catch { continue; }
-
-          const type = payload.type;
-
-          if (type === 'status') {
-            appendStatus(payload.message);
-            statusText.textContent = payload.phase || 'scanning';
-
-          } else if (type === 'finding') {
-            const p = payload.package;
-            appendFinding(p);
-            flaggedPackages++;
-            totalFindings += (p.findings || []).length;
-
-          } else if (type === 'summary') {
-            totalPackages  = payload.total || 0;
-            flaggedPackages= payload.flagged || 0;
-            totalFindings  = payload.total_findings || 0;
-            isClean        = payload.clean;
-
-          } else if (type === 'error') {
-            appendStatus(payload.message, 'error');
-            setStatus('stopped', 'error');
-
-          } else if (type === 'done') {
-            // Render summary
-            const clean = isClean !== false && flaggedPackages === 0;
-            showSummary(totalPackages, flaggedPackages, totalFindings, clean);
-            setStatus(clean ? 'clean' : 'threat', clean ? 'clean' : 'threats found');
-            if (clean) {
-              appendRaw(`<div class="stream-line">
-                <span class="stream-ts stream-faint">${now()}</span>
-                <span class="stream-tag tag-clean">OK</span>
-                <span class="stream-text stream-dim">No malicious packages detected.</span>
-              </div>`);
-            }
+        } else if (type === 'done') {
+          clearTimeout(scanTimer);
+          stopTimeoutBar();
+          const clean = isClean !== false && flaggedPackages === 0;
+          showSummary(totalPackages, flaggedPackages, totalFindings, clean);
+          setStatus(clean ? 'clean' : 'threat', clean ? 'clean' : 'threats found');
+          if (clean) {
+            appendRaw(`<div class="stream-line">
+              <span class="stream-ts stream-faint">${now()}</span>
+              <span class="stream-tag tag-clean">OK</span>
+              <span class="stream-text stream-dim">No malicious packages detected.</span>
+            </div>`);
           }
         }
       }
-    } catch (e) {
-      if (e.name !== 'AbortError') {
-        appendStatus('Connection lost: ' + e.message, 'error');
-        setStatus('stopped', 'disconnected');
-      }
-    } finally {
-      activeScan = null;
-      btnScan.disabled = false;
     }
+
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      appendStatus('Connection lost: ' + e.message, 'error');
+      setStatus('stopped', 'disconnected');
+    }
+  } finally {
+    // Only clear timer/bar here if the timeout handler didn't already run
+    if (activeScan) {
+      clearTimeout(scanTimer);
+      stopTimeoutBar();
+    }
+    activeScan = null;
+    btnScan.disabled = false;
   }
+}
 
-  function setStatus(dotClass, text) {
-    pulseDot.className = 'pulse-dot ' + dotClass;
-    statusText.textContent = text;
-  }
+function setStatus(dotClass, text) {
+  pulseDot.className = 'pulse-dot ' + dotClass;
+  statusText.textContent = text;
+}
 
-  function showSummary(total, flagged, findings, clean) {
-    summaryBanner.classList.remove('clean', 'threats');
-    summaryBanner.classList.add(clean ? 'clean' : 'threats');
-    summaryMessage.textContent = clean
-      ? `All ${total} packages checked — nothing malicious detected.`
-      : `${flagged} of ${total} packages flagged across ${findings} finding(s).`;
+function showSummary(total, flagged, findings, clean) {
+  summaryBanner.classList.remove('clean', 'threats');
+  summaryBanner.classList.add(clean ? 'clean' : 'threats');
+  summaryMessage.textContent = clean
+    ? `All ${total} packages checked — nothing malicious detected.`
+    : `${flagged} of ${total} packages flagged across ${findings} finding(s).`;
 
-    summaryGrid.innerHTML = [
-      { val: total,    label: 'packages scanned' },
-      { val: flagged,  label: 'flagged' },
-      { val: findings, label: 'total findings' },
-    ].map(s => `
-      <div class="summary-stat">
-        <div class="summary-stat-val">${s.val}</div>
-        <div class="summary-stat-label">${s.label}</div>
-      </div>`).join('');
+  summaryGrid.innerHTML = [
+    { val: total,    label: 'packages scanned' },
+    { val: flagged,  label: 'flagged' },
+    { val: findings, label: 'total findings' },
+  ].map(s => `
+    <div class="summary-stat">
+      <div class="summary-stat-val">${s.val}</div>
+      <div class="summary-stat-label">${s.label}</div>
+    </div>`).join('');
 
-    requestAnimationFrame(() => {
-      summaryBanner.classList.add('show');
-    });
-  }
+  requestAnimationFrame(() => summaryBanner.classList.add('show'));
+}
 </script>
 </body>
 </html>
