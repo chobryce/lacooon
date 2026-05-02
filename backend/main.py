@@ -596,4 +596,26 @@ async def scan(request: Request, file: UploadFile = File(...)):
                     result = scan_source_file(tmp_path, filename, data)
 
                     if result["finding_count"] > 0:
-return StreamingResponse(event_stream(), media_type="text/event-stream")
+                        yield sse({"type": "finding", "package": result})
+
+                    yield sse({
+                        "type": "summary",
+                        "total": 1,
+                        "flagged": 1 if result["finding_count"] else 0,
+                        "total_findings": result["finding_count"],
+                        "clean": result["finding_count"] == 0,
+                    })
+
+                    yield sse({"type": "done"})
+                    return
+
+            except Exception:
+                yield sse({
+                    "type": "error",
+                    "message": "Scan failed. The file may be malformed or unsupported."
+                })
+
+            finally:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
