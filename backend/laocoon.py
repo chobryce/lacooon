@@ -1595,31 +1595,35 @@ class SourceAnalyzer:
             log.warning(f"Source download failed: {e}")
             return None
 
-    def _extract(self, archive_path: str, dest_dir: str) -> Optional[str]:
-        extract_dir = os.path.join(dest_dir, "extracted")
-        os.makedirs(extract_dir, exist_ok=True)
-        try:
-            if tarfile.is_tarfile(archive_path):
-                with tarfile.open(archive_path, "r:*") as t:
-                    t.extractall(extract_dir, filter='data')
-                return extract_dir
-if zipfile.is_zipfile(archive_path):
-    with zipfile.ZipFile(archive_path) as z:
-        for member in z.infolist():
-            member_path = os.path.realpath(
-                os.path.join(extract_dir, member.filename)
-            )
+def _extract(self, archive_path: str, dest_dir: str) -> Optional[str]:
+    extract_dir = os.path.join(dest_dir, "extracted")
+    os.makedirs(extract_dir, exist_ok=True)
 
-            if not member_path.startswith(os.path.realpath(extract_dir)):
-                log.warning(f"Blocked zip slip attempt: {member.filename}")
-                continue
+    try:
+        if tarfile.is_tarfile(archive_path):
+            with tarfile.open(archive_path, "r:*") as t:
+                t.extractall(extract_dir, filter='data')
+            return extract_dir
 
-            z.extract(member, extract_dir)
+            if zipfile.is_zipfile(archive_path):
+              with zipfile.ZipFile(archive_path) as z:
+                  for member in z.infolist():
+                      member_path = os.path.realpath(
+                          os.path.join(extract_dir, member.filename)
+                      )
+  
+                      if not member_path.startswith(os.path.realpath(extract_dir)):
+                          log.warning(f"Blocked zip slip attempt: {member.filename}")
+                          continue
+  
+                      z.extract(member, extract_dir)
 
-    return extract_dir
-        except Exception as e:
-            log.warning(f"Archive extraction failed: {e}")
-        return None
+              return extract_dir
+
+    except Exception as e:
+        log.warning(f"Archive extraction failed: {e}")
+
+    return None
 
     def _iter_source_files(self, root: str) -> Generator[str, None, None]:
         for dirpath, _, filenames in os.walk(root):
