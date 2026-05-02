@@ -641,8 +641,8 @@ function safeAdvisoryUrl(u) {
 }
 
 function appendFinding(pkg) {
-  const sev  = pkg.highest_severity || 'LOW';
-  const name = pkg.package || '?';
+  const sev = pkg.severity || pkg.highest_severity || 'LOW';
+  const name = pkg.name || pkg.package || '?';
   const ver  = pkg.version  || '';
   const cnt  = (pkg.findings || []).length;
 
