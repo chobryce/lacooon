@@ -712,10 +712,13 @@ async def scan(request: Request, file: UploadFile = File(...)):
 
                     yield sse({"type": "done"})
                     return
-            except Exception:
+            except Exception as e:
+                import traceback
+                print(traceback.format_exc())  # shows full error in Render logs
+            
                 yield sse({
                     "type": "error",
-                    "message": "Scan failed. The file may be malformed or unsupported."
+                    "message": str(e)
                 })
 
             finally:
