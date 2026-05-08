@@ -1,6 +1,7 @@
 import ast
 import hashlib
 import json
+import logging
 import os
 import re
 import shutil
@@ -10,24 +11,37 @@ import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import FastAPI, File, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+log = logging.getLogger("LaocoonAPI")
+log.addHandler(logging.NullHandler())
+
+# ── FastAPI and middleware imports ───────────────────────────────────────────
+try:
+    from fastapi import FastAPI, File, UploadFile, Request
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import StreamingResponse
+    HAS_FASTAPI = True
+except (ImportError, AttributeError) as e:
+    HAS_FASTAPI = False
+    log.error(f"FastAPI not available: {e}")
+    raise RuntimeError("FastAPI is required. Install with: pip install fastapi")
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.middleware import SlowAPIMiddleware
+    HAS_SLOWAPI = True
+except (ImportError, AttributeError) as e:
+    HAS_SLOWAPI = False
+    log.error(f"SlowAPI not available: {e}")
+    raise RuntimeError("SlowAPI is required. Install with: pip install slowapi")
 
 from laocoon import LaocoonScanner, ManifestParser, SOURCE_CODE_RULES, Severity
-
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from fastapi import Request
 
 app = FastAPI(title="lacooon API", version="2.0.0")
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
-
-from slowapi.middleware import SlowAPIMiddleware
-from slowapi import _rate_limit_exceeded_handler
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
@@ -341,6 +355,11 @@ def ast_python_findings(content: str, filename: str) -> List[Dict[str, Any]]:
         "exec": ("PY-AST-002", "dynamic_exec", "CRITICAL", "exec() executes dynamic code."),
         "compile": ("PY-AST-003", "dynamic_compile", "HIGH", "compile() can prepare dynamic code for execution."),
         "open": ("PY-AST-004", "file_access", "LOW", "File access detected."),
+        "input": ("PY-AST-005", "user_input", "LOW", "User input reading detected."),
+        "__import__": ("PY-AST-006", "dynamic_import", "HIGH", "Dynamic import detected."),
+        "getattr": ("PY-AST-007", "dynamic_attribute_access", "MEDIUM", "Dynamic attribute access detected."),
+        "setattr": ("PY-AST-008", "dynamic_attribute_setting", "MEDIUM", "Dynamic attribute setting detected."),
+        "delattr": ("PY-AST-009", "dynamic_attribute_deletion", "MEDIUM", "Dynamic attribute deletion detected."),
     }
 
     dangerous_attrs = {
@@ -349,11 +368,22 @@ def ast_python_findings(content: str, filename: str) -> List[Dict[str, Any]]:
         ("subprocess", "Popen"): ("PY-AST-012", "subprocess_popen", "HIGH", "subprocess.Popen() executes external processes."),
         ("subprocess", "run"): ("PY-AST-013", "subprocess_run", "MEDIUM", "subprocess.run() executes external processes."),
         ("subprocess", "check_output"): ("PY-AST-014", "subprocess_check_output", "HIGH", "subprocess.check_output() executes external processes."),
-        ("socket", "socket"): ("PY-AST-015", "raw_socket", "HIGH", "Raw socket usage detected."),
-        ("requests", "post"): ("PY-AST-016", "http_post", "HIGH", "HTTP POST request detected."),
-        ("requests", "get"): ("PY-AST-017", "http_get", "MEDIUM", "HTTP GET request detected."),
-        ("base64", "b64decode"): ("PY-AST-018", "base64_decode", "MEDIUM", "Base64 decoding detected."),
-        ("marshal", "loads"): ("PY-AST-019", "marshal_loads", "HIGH", "marshal.loads() can deserialize Python bytecode."),
+        ("subprocess", "call"): ("PY-AST-015", "subprocess_call", "HIGH", "subprocess.call() executes external processes."),
+        ("socket", "socket"): ("PY-AST-016", "raw_socket", "HIGH", "Raw socket usage detected."),
+        ("requests", "post"): ("PY-AST-017", "http_post", "HIGH", "HTTP POST request detected."),
+        ("requests", "get"): ("PY-AST-018", "http_get", "MEDIUM", "HTTP GET request detected."),
+        ("urllib.request", "urlopen"): ("PY-AST-019", "urllib_urlopen", "MEDIUM", "urllib.request.urlopen() makes HTTP requests."),
+        ("urllib.request", "Request"): ("PY-AST-020", "urllib_request", "MEDIUM", "urllib.request.Request() creates HTTP requests."),
+        ("base64", "b64decode"): ("PY-AST-021", "base64_decode", "MEDIUM", "Base64 decoding detected."),
+        ("binascii", "unhexlify"): ("PY-AST-022", "binascii_unhexlify", "MEDIUM", "Hex decoding detected."),
+        ("marshal", "loads"): ("PY-AST-023", "marshal_loads", "HIGH", "marshal.loads() can deserialize Python bytecode."),
+        ("pickle", "loads"): ("PY-AST-024", "pickle_loads", "HIGH", "pickle.loads() can deserialize arbitrary objects."),
+        ("zlib", "decompress"): ("PY-AST-025", "zlib_decompress", "MEDIUM", "Data decompression detected."),
+        ("gzip", "decompress"): ("PY-AST-026", "gzip_decompress", "MEDIUM", "Gzip decompression detected."),
+        ("importlib.util", "spec_from_loader"): ("PY-AST-027", "importlib_spec_from_loader", "HIGH", "Dynamic module loading detected."),
+        ("sys", "meta_path"): ("PY-AST-028", "sys_meta_path_modification", "HIGH", "Import hook injection detected."),
+        ("ctypes", "CDLL"): ("PY-AST-029", "ctypes_cdll", "HIGH", "Dynamic library loading detected."),
+        ("ctypes", "windll"): ("PY-AST-030", "ctypes_windll", "HIGH", "Windows DLL loading detected."),
     }
 
     for node in ast.walk(tree):
@@ -504,7 +534,6 @@ def source_scan_rules() -> List[Dict[str, Any]]:
             "pattern": r"((https?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+)|(['\"]\d{1,3}(?:\.\d{1,3}){3}['\"]))",
         },
     ]
-
 
 def run_laocoon_source_rules(content: str, filename: str) -> List[Dict[str, Any]]:
     findings: List[Dict[str, Any]] = []
@@ -712,16 +741,21 @@ async def scan(request: Request, file: UploadFile = File(...)):
 
                     yield sse({"type": "done"})
                     return
-            except Exception as e:
+            except (ValueError, TypeError, OSError) as e:
                 import traceback
+                log.error(f"Scan failed for {filename}: {e}")
                 print(traceback.format_exc())  # shows full error in Render logs
-            
+
                 yield sse({
                     "type": "error",
-                    "message": str(e)
+                    "message": f"Analysis failed: {str(e)}"
                 })
 
             finally:
-                shutil.rmtree(tmp_dir, ignore_errors=True)
+                try:
+                    shutil.rmtree(tmp_dir, ignore_errors=False)
+                except OSError as e:
+                    log.warning(f"Failed to clean up temp directory {tmp_dir}: {e}")
+                    # Continue anyway - temp files will be cleaned up by OS eventually
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

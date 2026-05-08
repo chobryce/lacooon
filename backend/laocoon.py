@@ -62,20 +62,30 @@ from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 from urllib.parse import quote, urlparse
 
+log = logging.getLogger("Laocoon")
+log.addHandler(logging.NullHandler())
+
 # ── Optional dependencies ────────────────────────────────────────────────────
 try:
     import requests
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
     HAS_REQUESTS = True
-except ImportError:
+    # Validate requests functionality
+    test_session = requests.Session()
+    test_session.close()
+except (ImportError, AttributeError) as e:
     HAS_REQUESTS = False
+    log.warning(f"requests library not available: {e}")
 
 try:
     from bs4 import BeautifulSoup
     HAS_BS4 = True
-except ImportError:
+    # Validate BeautifulSoup functionality
+    test_soup = BeautifulSoup("<html></html>", "html.parser")
+except (ImportError, AttributeError) as e:
     HAS_BS4 = False
+    log.warning(f"beautifulsoup4 library not available: {e}")
 
 try:
     import tomllib
@@ -84,13 +94,17 @@ except ImportError:
         import tomli as tomllib
     except ImportError:
         tomllib = None
+        log.warning("tomllib/tomli not available - TOML parsing disabled")
 
 try:
     from packaging.version import Version, InvalidVersion
     from packaging.specifiers import SpecifierSet
     HAS_PACKAGING = True
-except ImportError:
+    # Validate packaging functionality
+    test_version = Version("1.0.0")
+except (ImportError, AttributeError) as e:
     HAS_PACKAGING = False
+    log.warning(f"packaging library not available: {e}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  SEVERITY LEVELS
@@ -731,6 +745,131 @@ SOURCE_CODE_RULES: List[SourceCodeRule] = [
         description="Image pixel manipulation with code execution — steganographic payload technique.",
         pattern=_r(r"""(getpixel|putpixel|PIL\.Image\.open).*(?:\n|.){0,200}(exec|eval|compile)"""),
     ),
+
+    # ── Enhanced JavaScript/Node.js specific rules ───────────────────────────
+    SourceCodeRule(
+        rule_id="SC-JS-001",
+        name="nodejs_process_injection",
+        severity=Severity.CRITICAL,
+        description="Node.js process.argv manipulation or injection — command line argument tampering.",
+        pattern=_r(r"""process\.argv\s*\[.*\]\s*=|process\.argv\.splice|process\.argv\.push"""),
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-002",
+        name="nodejs_file_system_abuse",
+        severity=Severity.HIGH,
+        description="Suspicious file system operations in Node.js — potential file exfiltration or destruction.",
+        pattern=_r(r"""fs\.(readFileSync|writeFileSync|readdirSync|unlinkSync|rmdirSync)\s*\("""),
+        context_patterns=[_r(r"""(__dirname|__filename|process\.env|os\.homedir|path\.join)""")],
+        min_context_matches=1,
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-003",
+        name="nodejs_child_process_abuse",
+        severity=Severity.CRITICAL,
+        description="Dangerous child_process usage — shell command execution with user input.",
+        pattern=_r(r"""child_process\.(exec|spawn|execSync|spawnSync)\s*\(\s*.*\$\{.*\}|.*\+.*\)"""),
+        context_patterns=[_r(r"""(shell.*true|bash|sh|cmd|powershell)""")],
+        min_context_matches=1,
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-004",
+        name="nodejs_http_exfiltration",
+        severity=Severity.HIGH,
+        description="HTTP requests to suspicious domains — data exfiltration via Node.js.",
+        pattern=_r(r"""https?\.(get|post|put|patch)\s*\(\s*['"`].*\.(onion|xyz|top|club|online|site)['"`]"""),
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-005",
+        name="nodejs_obfuscated_code",
+        severity=Severity.HIGH,
+        description="Base64 decoded and executed JavaScript — common obfuscation technique.",
+        pattern=_r(r"""(Buffer\.from|atob)\s*\([^)]+\)\s*\.\s*(toString|eval|Function)"""),
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-006",
+        name="nodejs_environment_exfiltration",
+        severity=Severity.HIGH,
+        description="Mass environment variable collection in Node.js — credential harvesting.",
+        pattern=_r(r"""process\.env|Object\.keys\(process\.env\)"""),
+        context_patterns=[_r(r"""(https?\.|fetch|axios|request)""")],
+        min_context_matches=1,
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-007",
+        name="nodejs_crypto_mining",
+        severity=Severity.CRITICAL,
+        description="Cryptocurrency mining setup — resource theft via Node.js.",
+        pattern=_r(r"""(miner|mining|coin|crypto|hashrate|blockchain).*start|worker_threads|cluster"""),
+        context_patterns=[_r(r"""(setInterval|setTimeout|while.*true|for.*;;)""")],
+        min_context_matches=1,
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-008",
+        name="nodejs_persistence_via_npm",
+        severity=Severity.CRITICAL,
+        description="NPM script hooks for persistence — postinstall scripts that maintain access.",
+        pattern=_r(r"""['"]scripts['"]\s*:\s*\{[^}]*postinstall.*:(.*curl|wget|bash|sh|node|python)"""),
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-009",
+        name="nodejs_remote_code_execution",
+        severity=Severity.CRITICAL,
+        description="Remote code execution via eval or Function constructor in Node.js.",
+        pattern=_r(r"""(eval|Function|setTimeout|setInterval)\s*\(\s*.*(fetch|axios|https?\.get|require).*['"`]"""),
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-010",
+        name="nodejs_websocket_c2",
+        severity=Severity.HIGH,
+        description="WebSocket connections to suspicious endpoints — C2 communication channel.",
+        pattern=_r(r"""new\s+WebSocket\s*\(\s*['"`].*(ws://|wss://).*['"`]\s*\)"""),
+        context_patterns=[_r(r"""(onmessage|send|process\.env|navigator\.userAgent)""")],
+        min_context_matches=1,
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-011",
+        name="nodejs_browser_fingerprinting",
+        severity=Severity.MEDIUM,
+        description="Browser fingerprinting in Node.js environment — victim profiling.",
+        pattern=_r(r"""(navigator\.|screen\.|window\.|document\.|localStorage|sessionStorage)"""),
+        context_patterns=[_r(r"""(userAgent|platform|language|cookie|referrer)""")],
+        min_context_matches=1,
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-012",
+        name="nodejs_package_hijacking",
+        severity=Severity.CRITICAL,
+        description="Package.json manipulation or dependency confusion setup.",
+        pattern=_r(r"""['"]dependencies['"]\s*:\s*\{[^}]*['"`][^'"`]*['"`]\s*:\s*['"`]file:|\.\/\.\./"""),
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-013",
+        name="nodejs_obfuscated_strings",
+        severity=Severity.MEDIUM,
+        description="String concatenation or character code obfuscation — anti-analysis technique.",
+        pattern=_r(r"""String\.fromCharCode\s*\([^)]+\)|(['"`][^'"`]*['"`]\s*\+\s*){3,}"""),
+        context_patterns=[_r(r"""(eval|Function|setTimeout|setInterval)""")],
+        min_context_matches=1,
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-014",
+        name="nodejs_suspicious_imports",
+        severity=Severity.MEDIUM,
+        description="Suspicious module imports that could be used for malicious purposes.",
+        pattern=_r(r"""require\s*\(\s*['"`](crypto|fs|child_process|os|net|http|https|dns|vm)['"`]\s*\)"""),
+        context_patterns=[_r(r"""(eval|exec|spawn|writeFile|unlink|rmdir)""")],
+        min_context_matches=1,
+    ),
+    SourceCodeRule(
+        rule_id="SC-JS-015",
+        name="nodejs_timing_attacks",
+        severity=Severity.LOW,
+        description="Timing-based attacks or anti-debugging via performance monitoring.",
+        pattern=_r(r"""performance\.now|Date\.now|process\.hrtime"""),
+        context_patterns=[_r(r"""(debugger|console\.|throw|Error)""")],
+        min_context_matches=1,
+    ),
 ]
 
 
@@ -1188,6 +1327,15 @@ class OSVClient:
 
     def query(self, pkg: Package) -> List[RuleMatch]:
         matches: List[RuleMatch] = []
+
+        # Input validation
+        if not pkg.name or not isinstance(pkg.name, str) or len(pkg.name) > 200:
+            log.warning(f"Invalid package name: {pkg.name}")
+            return matches
+        if pkg.version and (not isinstance(pkg.version, str) or len(pkg.version) > 100):
+            log.warning(f"Invalid package version: {pkg.version}")
+            return matches
+
         payload: Dict[str, Any] = {
             "package": {"name": pkg.name, "ecosystem": self._ecosystem(pkg)}
         }
@@ -1199,7 +1347,7 @@ class OSVClient:
             )
             resp.raise_for_status()
             data = resp.json()
-        except Exception as e:
+        except (requests.RequestException, json.JSONDecodeError, ValueError) as e:
             log.warning(f"OSV query failed for {pkg.name}: {e}")
             return matches
 
